@@ -6,10 +6,13 @@
 #include <cassert>
 #include <cstdint>
 #include <string>
+#include <type_traits>
 
 namespace sb {
+static constexpr std::uint8_t masks[] = {1, 2, 4, 8, 16, 32, 64, 128};
 template<std::size_t num_bits>
 class small_bitset {
+
 private:
     class bit_ref {
         friend small_bitset;
@@ -24,26 +27,98 @@ private:
     public:
         constexpr bit_ref operator=(bool b) {
             if (b) {
-                *byte |= 1 << which;
+                *byte |= masks[which];
             } else {
-                *byte &= ~(1 << which);
+                *byte &= ~masks[which];
             }
             return *this;
         }
 
         constexpr bool operator~() const {
-            return (*byte & (1 << which)) == 0;
+            return (*byte & masks[which]) == 0;
         }
 
         constexpr operator bool() const {
-            return (*byte & (1 << which)) != 0;
+            return (*byte & masks[which]) != 0;
         }
     };
 
 public:
     static constexpr std::size_t num_bytes = num_bits / 8 + (num_bits % 8 != 0);
 
-    std::uint8_t data[num_bytes]{};
+    static_assert(num_bits > 0 && "number of bits has to be greater than zero");
+
+    struct big_version {
+        union {
+            std::size_t register_size_arr[num_bytes / sizeof(std::size_t)]; // only accessed
+            std::uint8_t byte_size_arr[num_bytes]{};
+        } data;
+
+        constexpr std::uint8_t &operator[](std::size_t idx) {
+            return data.byte_size_arr[idx];
+        }
+
+        constexpr std::uint8_t const &operator[](std::size_t idx) const {
+            return data.byte_size_arr[idx];
+        }
+
+        constexpr std::uint8_t *begin() {
+            return data.byte_size_arr;
+        }
+
+        constexpr std::uint8_t const *begin() const {
+            return data.byte_size_arr;
+        }
+
+        constexpr std::uint8_t *end() {
+            return data.byte_size_arr + num_bytes;
+        }
+
+        constexpr std::uint8_t const *end() const {
+            return data.byte_size_arr + num_bytes;
+        }
+    };
+
+    struct small_version {
+        struct empty {
+            template<class... G> constexpr empty(G &&...) { throw std::exception("unreachable"); }
+            template<class G> constexpr empty &operator=(G &&) const { throw std::exception("unreachable"); }
+            constexpr operator int() const {
+                throw std::exception("unreachable");
+                return 0;
+            }
+        };
+        union {
+            empty register_size_arr[1]; // never accessed
+            std::uint8_t byte_size_arr[num_bytes]{};
+        } data;
+
+        constexpr std::uint8_t &operator[](std::size_t idx) {
+            return data.byte_size_arr[idx];
+        }
+
+        constexpr std::uint8_t const &operator[](std::size_t idx) const {
+            return data.byte_size_arr[idx];
+        }
+
+        constexpr std::uint8_t *begin() {
+            return data.byte_size_arr;
+        }
+
+        constexpr std::uint8_t const *begin() const {
+            return data.byte_size_arr;
+        }
+
+        constexpr std::uint8_t *end() {
+            return data.byte_size_arr + num_bytes;
+        }
+
+        constexpr std::uint8_t const *end() const {
+            return data.byte_size_arr + num_bytes;
+        }
+    };
+
+    typename std::conditional<(num_bytes >= 8), big_version, small_version>::type data{};
 
     constexpr small_bitset() = default;
 
@@ -74,15 +149,23 @@ public:
     }
 
     constexpr bool operator[](std::size_t idx) const {
-        return (data[idx / 8] >> idx % 8) & 1 != 0;
+        return (data[idx / 8] & masks[idx % 8]) != 0;
     }
 
     constexpr bool test(std::size_t idx) const {
-        return (*this)[idx];
+        return (data[idx / 8] & masks[idx % 8]) != 0;
     }
 
     constexpr void set(std::size_t idx) {
-        (*this)[idx] = true;
+        data[idx / 8] |= masks[idx % 8];
+    }
+
+    constexpr void set(std::size_t idx, bool value) {
+        if (value) {
+            data[idx / 8] |= masks[idx % 8];
+        } else {
+            data[idx / 8] &= ~masks[idx % 8];
+        }
     }
 
     constexpr bool all() const {
@@ -94,7 +177,7 @@ public:
 
     constexpr bool any() const {
         for (auto i: data)
-            if (i)
+            if (i != 0)
                 return true;
         return false;
     }
@@ -103,12 +186,27 @@ public:
         return !any();
     }
 
-    constexpr std::size_t count() const {
+#if __cpp_lib_is_constant_evaluated
+    constexpr
+#endif
+            std::size_t
+            count() const {
         std::size_t result = 0;
-        for (std::size_t i = 0; i < num_bytes - 1; ++i)
-            result += std::bitset<8>(data[i]).count();
-        for (std::size_t i = (num_bytes - 1) * 8; i < num_bits; ++i)
-            result += test(i);
+        if (
+#if __cpp_lib_is_constant_evaluated
+                !std::is_constant_evaluated() &&
+#endif
+                num_bytes >= 8) {
+            for (std::size_t i = 0; i < num_bits / 64; ++i)
+                result += std::bitset<64>(data.data.register_size_arr[i]).count();
+            for (std::size_t i = (num_bits / 64) * 64; i < num_bits; ++i)
+                result += test(i);
+        } else {
+            for (std::size_t i = 0; i < num_bytes - 1; ++i)
+                result += std::bitset<8>(data[i]).count();
+            for (std::size_t i = (num_bytes - 1) * 8; i < num_bits; ++i)
+                result += test(i);
+        }
         return result;
     }
 
@@ -213,8 +311,8 @@ public:
             res.push_back('0' + test(num_bits - i - 1));
         return res;
     }
-};
+}; // namespace sb
 
-} // namespace small_bitset
+} // namespace sb
 
 #endif

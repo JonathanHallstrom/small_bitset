@@ -35,10 +35,11 @@ static_assert(sb::small_bitset<8 * sizeof(unsigned long long)>(std::numeric_limi
 
 
 int main() {
-    sb::small_bitset<64>
-            // std::bitset<64>
+    constexpr int size = 4096;
+    sb::small_bitset<size>
+            // std::bitset<size>
             sb{};
-    std::bitset<64> stdb{};
+    std::bitset<size> stdb{};
 
     std::mt19937_64 mt{std::random_device{}()};
 
@@ -76,6 +77,10 @@ int main() {
             default: {
             } break;
         }
+        assert(sb.all() == stdb.all());
+        assert(sb.any() == stdb.any());
+        assert(sb.none() == stdb.none());
+        assert(sb.count() == stdb.count());
     }
     for (int i = 0; i < sb.size(); ++i)
         assert(sb[i] == stdb[i]);
