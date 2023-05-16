@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <string>
 
-namespace small_bitset {
+namespace sb {
 template<std::size_t num_bits>
 class small_bitset {
 private:
