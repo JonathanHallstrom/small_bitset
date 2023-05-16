@@ -50,7 +50,7 @@ public:
 
     struct big_version {
         union {
-            std::size_t register_size_arr[num_bytes / sizeof(std::size_t)]; // only accessed
+            std::size_t register_size_arr[num_bytes / sizeof(std::size_t)];
             std::uint8_t byte_size_arr[num_bytes]{};
         } data;
 
@@ -81,15 +81,12 @@ public:
 
     struct small_version {
         struct empty {
-            template<class... G> constexpr empty(G &&...) { throw std::exception("unreachable"); }
-            template<class G> constexpr empty &operator=(G &&) const { throw std::exception("unreachable"); }
-            constexpr operator int() const {
-                throw std::exception("unreachable");
-                return 0;
-            }
+            template<class... G> constexpr empty(G &&...) { throw "unreachable"; }
+            template<class G> constexpr empty &operator=(G &&) const { throw "unreachable"; }
+            template<class G> constexpr operator G() const { throw "unreachable"; }
         };
         union {
-            empty register_size_arr[1]; // never accessed
+            empty register_size_arr[0]; // never accessed
             std::uint8_t byte_size_arr[num_bytes]{};
         } data;
 
