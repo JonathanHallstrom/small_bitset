@@ -81,9 +81,9 @@ public:
 
     struct small_version {
         struct empty {
-            template<class... G> constexpr empty(G &&...) { throw "unreachable"; }
-            template<class G> constexpr empty &operator=(G &&) const { throw "unreachable"; }
-            template<class G> constexpr operator G() const { throw "unreachable"; }
+            template<class... G> constexpr empty(G &&...) noexcept { throw "unreachable"; }
+            template<class G> constexpr empty &operator=(G &&) const noexcept { throw "unreachable"; }
+            template<class G> constexpr operator G() const noexcept { throw "unreachable"; }
         };
         union {
             empty register_size_arr[0]; // never accessed
