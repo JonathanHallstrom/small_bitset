@@ -70,12 +70,10 @@ public:
     }
 
     constexpr bit_ref operator[](std::size_t idx) {
-        assert(idx < num_bits);
         return bit_ref{data[idx / 8], idx % 8};
     }
 
     constexpr bool operator[](std::size_t idx) const {
-        assert(idx < num_bits);
         return (data[idx / 8] >> idx % 8) & 1 != 0;
     }
 
@@ -107,7 +105,10 @@ public:
 
     constexpr std::size_t count() const {
         std::size_t result = 0;
-        for (auto i: data) result += std::bitset<8>(i).count();
+        for (std::size_t i = 0; i < num_bytes - 1; ++i)
+            result += std::bitset<8>(data[i]).count();
+        for (std::size_t i = (num_bytes - 1) * 8; i < num_bits; ++i)
+            result += test(i);
         return result;
     }
 
