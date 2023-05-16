@@ -1,2 +1,2 @@
 # small_bitset
-bitset that doesnt waste space for small bitsets
+A bitset that doesn't waste space.
