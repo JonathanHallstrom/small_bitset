@@ -91,22 +91,12 @@ int main() {
             default: {
             } break;
         }
-        if (sb.count() != stdb.count()) {
-            for (int i = 0; i < size; ++i)
-                std::cout << sb.test(i);
-            std::cout << '\n';
-
-            std::cout << sb.to_string() << '\n';
-            std::cout << stdb.to_string() << '\n';
-            return 0;
-        }
         assert(sb.all() == stdb.all());
         assert(sb.any() == stdb.any());
         assert(sb.none() == stdb.none());
         assert(sb.count() == stdb.count());
+        for (std::size_t i = 0; i < sb.size(); ++i)
+            assert(sb[i] == stdb[i]);
     }
-    for (std::size_t i = 0; i < sb.size(); ++i)
-        assert(sb[i] == stdb[i]);
-    assert(sb.count() == stdb.count());
     std::cout << "All tests passed!\n";
 }
