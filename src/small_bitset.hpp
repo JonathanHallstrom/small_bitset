@@ -4,6 +4,7 @@
 #include <array>
 #include <cassert>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <type_traits>
 
@@ -164,12 +165,13 @@ public:
         return *this;
     }
 
-    constexpr void set(std::size_t idx, bool value) {
+    constexpr small_bitset &set(std::size_t idx, bool value) {
         if (value) {
             data[idx / 8] |= masks[idx % 8];
         } else {
             data[idx / 8] &= ~masks[idx % 8];
         }
+        return *this;
     }
 
     constexpr bool all() const {
@@ -304,12 +306,26 @@ public:
         return *this;
     }
 
-    constexpr void set() {
+    constexpr small_bitset &set() {
+#if __cpp_lib_is_constant_evaluated
+        if (!std::is_constant_evaluated()) {
+            std::memset(data.begin(), -1, sizeof(data));
+            return *this;
+        }
+#endif
         _apply_to_all([](auto &x) { x = (typename std::remove_reference<decltype(x)>::type)(-1); }, true);
+        return *this;
     }
 
-    constexpr void reset() {
+    constexpr small_bitset &reset() {
+#if __cpp_lib_is_constant_evaluated
+        if (!std::is_constant_evaluated()) {
+            std::memset(data.begin(), 0, sizeof(data));
+            return *this;
+        }
+#endif
         _apply_to_all([](auto &x) { x = 0; }, true);
+        return *this;
     }
 
     /*
