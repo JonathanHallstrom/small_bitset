@@ -2,7 +2,6 @@
 #define SMALL_BITSET_H
 
 #include <array>
-#include <bitset>
 #include <cassert>
 #include <cstdint>
 #include <string>
@@ -189,18 +188,31 @@ public:
             std::size_t
             count() const {
         std::size_t result = 0;
-        if (
 #if __cpp_lib_is_constant_evaluated
-                !std::is_constant_evaluated() &&
+        if (std::is_constant_evaluated) {
+            for (std::size_t i = 0; i < num_bits; ++i)
+                result += test(i);
+            return result;
+        }
 #endif
-                num_bytes >= 8) {
+        // gets optimized to 'popcnt' instruction with the command line option '-march=haswell' on gcc (tested for versions >=9.1) and clang (tested for versions >=3.6)
+        auto count_bits = [](std::size_t x) {
+            int res = 0;
+            while (x) {
+                res += 1;
+                x = x & (x - 1);
+            }
+            return res;
+        };
+
+        if (num_bytes >= 8) {
             for (std::size_t i = 0; i < num_bits / 64; ++i)
-                result += std::bitset<64>(data.data.register_size_arr[i]).count();
+                result += count_bits(data.data.register_size_arr[i]);
             for (std::size_t i = (num_bits / 64) * 64; i < num_bits; ++i)
                 result += test(i);
         } else {
             for (std::size_t i = 0; i < num_bytes - 1; ++i)
-                result += std::bitset<8>(data[i]).count();
+                result += count_bits(data[i]);
             for (std::size_t i = (num_bytes - 1) * 8; i < num_bits; ++i)
                 result += test(i);
         }
