@@ -189,7 +189,7 @@ public:
             count() const {
         std::size_t result = 0;
 #if __cpp_lib_is_constant_evaluated
-        if (std::is_constant_evaluated) {
+        if (std::is_constant_evaluated()) {
             for (std::size_t i = 0; i < num_bits; ++i)
                 result += test(i);
             return result;
@@ -205,7 +205,7 @@ public:
             }
             return res;
         };
-        
+
         for (std::size_t i = 0; i < num_bits / 64; ++i)
             result += count_bits(data.data.register_size_arr[i]);
         for (std::size_t i = (num_bits / 64) * 8; i < num_bits / 8; ++i)
@@ -296,21 +296,31 @@ public:
         for (auto &i: data) i = 0;
     }
 
+    /*
+     * bits which wouldn't fit in an unsigned long are ignored
+     */
     constexpr unsigned long to_ulong() const {
         unsigned long result = 0;
-        for (std::size_t i = 0; i < num_bytes; ++i)
+        for (std::size_t i = 0; i < std::min(sizeof(unsigned long), num_bytes); ++i)
             result |= static_cast<unsigned long>(data[i]) << (8 * i);
         return result;
     }
 
+    /*
+     * bits which wouldn't fit in an unsigned long long are ignored
+     */
     constexpr unsigned long long to_ullong() const {
         unsigned long long result = 0;
-        for (std::size_t i = 0; i < num_bytes; ++i)
+        for (std::size_t i = 0; i < std::min(sizeof(unsigned long long), num_bytes); ++i)
             result |= static_cast<unsigned long long>(data[i]) << (8 * i);
         return result;
     }
 
-    constexpr std::string to_string() const {
+#if __cplusplus >= 202002l
+    constexpr
+#endif
+            std::string
+            to_string() const {
         std::string res;
         res.reserve(num_bits);
         for (std::size_t i = 0; i < num_bits; ++i)
