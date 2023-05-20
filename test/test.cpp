@@ -80,19 +80,11 @@ int main() {
             } break;
             case 6: {
                 int i = udi{0, sb.size() - 1}(mt);
-                std::cout << "right\n";
-                std::cout << sb.to_string() << '\n';
-                std::cout << stdb.to_string() << '\n';
-                std::cout << i << '\n';
                 sb >>= i;
                 stdb >>= i;
             } break;
             case 7: {
                 int i = udi{0, sb.size() - 1}(mt);
-                std::cout << "left\n";
-                std::cout << sb.to_string() << '\n';
-                std::cout << stdb.to_string() << '\n';
-                std::cout << i << '\n';
                 sb <<= i;
                 stdb <<= i;
             } break;
