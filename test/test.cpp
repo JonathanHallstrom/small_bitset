@@ -12,9 +12,9 @@ static_assert(sizeof(sb::small_bitset<64>) == 8);
 
 static_assert(alignof(sb::small_bitset<8>) == 1);
 static_assert(alignof(sb::small_bitset<56>) == 1);
-static_assert(alignof(sb::small_bitset<57>) == 8);
-static_assert(alignof(sb::small_bitset<64>) == 8);
-static_assert(alignof(sb::small_bitset<1024>) == 8);
+static_assert(alignof(sb::small_bitset<57>) == alignof(std::size_t));
+static_assert(alignof(sb::small_bitset<64>) == alignof(std::size_t));
+static_assert(alignof(sb::small_bitset<1024>) == alignof(std::size_t));
 
 static_assert(sb::small_bitset<1>{1}[0]);
 static_assert(sb::small_bitset<2>{2}[1]);

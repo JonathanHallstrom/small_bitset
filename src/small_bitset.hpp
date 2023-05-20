@@ -206,9 +206,12 @@ public:
             return res;
         };
 
-        for (std::size_t i = 0; i < num_bits / 64; ++i)
+        constexpr std::size_t register_bytes = sizeof(std::size_t);
+        constexpr std::size_t register_bits = register_bytes * 8;
+
+        for (std::size_t i = 0; i < num_bits / register_bits; ++i)
             result += count_bits(data.data.register_size_arr[i]);
-        for (std::size_t i = (num_bits / 64) * 8; i < num_bits / 8; ++i)
+        for (std::size_t i = (num_bits / register_bits) * register_bytes; i < num_bits / 8; ++i)
             result += count_bits(data[i]);
         for (std::size_t i = (num_bits / 8) * 8; i < num_bits; ++i)
             result += test(i);
