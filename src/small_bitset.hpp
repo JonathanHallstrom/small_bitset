@@ -45,7 +45,7 @@ private:
 public:
     static constexpr std::size_t num_bytes = num_bits / 8 + (num_bits % 8 != 0);
 
-    static_assert(num_bits > 0 && "number of bits has to be greater than zero");
+    static_assert(num_bits > 0, "number of bits has to be greater than zero");
 
     struct big_version {
         union {
@@ -195,9 +195,10 @@ public:
             return result;
         }
 #endif
-        // gets optimized to 'popcnt' instruction with the command line option '-march=haswell' (or any other supported architecture which has 'popcnt')
-        // tested on gcc (>=9.1) and clang (>=3.6)
         auto count_bits = [](std::size_t x) {
+#if defined(__clang__) || defined(__GNUC__) || __has_builtin(__builtin_popcountll)
+            return __builtin_popcountll(x);
+#endif
             int res = 0;
             while (x) {
                 res += 1;
@@ -210,8 +211,8 @@ public:
             result += count_bits(x);
         });
 
-        for (std::size_t i = (num_bits / 8) * 8; i < num_bits; ++i)
-            result += test(i);
+        constexpr std::uint8_t last_byte_masks[] = {0, 0b1, 0b11, 0b111, 0b1111, 0b11111, 0b111111, 0b1111111};
+        result += count_bits(last_byte_masks[num_bits % 8] & data[num_bytes - 1]);
 
         return result;
     }
@@ -334,10 +335,14 @@ private:
         constexpr std::size_t register_bytes = sizeof(std::size_t);
         constexpr std::size_t register_bits = register_bytes * 8;
 
-        for (std::size_t i = 0; i < num_bits / register_bits; ++i)
-            func_obj(data.data.register_size_arr[i]);
-        for (std::size_t i = (num_bits / register_bits) * register_bytes; i < (include_last_partial_byte ? num_bytes : num_bits / 8); ++i)
-            func_obj(data[i]);
+        for (auto &i: data.data.register_size_arr)
+            func_obj(i);
+        if (include_last_partial_byte)
+            for (std::size_t i = (num_bits / register_bits) * register_bytes; i < num_bytes; ++i)
+                func_obj(data[i]);
+        else
+            for (std::size_t i = (num_bits / register_bits) * register_bytes; i < num_bits / 8; ++i)
+                func_obj(data[i]);
     }
 
     template<class F>
@@ -345,10 +350,14 @@ private:
         constexpr std::size_t register_bytes = sizeof(std::size_t);
         constexpr std::size_t register_bits = register_bytes * 8;
 
-        for (std::size_t i = 0; i < num_bits / register_bits; ++i)
-            func_obj(data.data.register_size_arr[i]);
-        for (std::size_t i = (num_bits / register_bits) * register_bytes; i < (include_last_partial_byte ? num_bytes : num_bits / 8); ++i)
-            func_obj(data[i]);
+        for (auto &i: data.data.register_size_arr)
+            func_obj(i);
+        if (include_last_partial_byte)
+            for (std::size_t i = (num_bits / register_bits) * register_bytes; i < num_bytes; ++i)
+                func_obj(data[i]);
+        else
+            for (std::size_t i = (num_bits / register_bits) * register_bytes; i < num_bits / 8; ++i)
+                func_obj(data[i]);
     }
 }; // namespace sb
 
