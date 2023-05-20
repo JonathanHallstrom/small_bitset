@@ -85,7 +85,7 @@ public:
             template<class G> constexpr operator G() const noexcept { throw "unreachable"; }
         };
         union {
-            empty register_size_arr[0]; // never accessed
+            empty register_size_arr[1]; // never accessed
             std::uint8_t byte_size_arr[num_bytes]{};
         } data;
 
@@ -206,13 +206,10 @@ public:
             return res;
         };
 
-        constexpr std::size_t register_bytes = sizeof(std::size_t);
-        constexpr std::size_t register_bits = register_bytes * 8;
+        _apply_to_all_const([count_bits, &result](auto x) {
+            result += count_bits(x);
+        });
 
-        for (std::size_t i = 0; i < num_bits / register_bits; ++i)
-            result += count_bits(data.data.register_size_arr[i]);
-        for (std::size_t i = (num_bits / register_bits) * register_bytes; i < num_bits / 8; ++i)
-            result += count_bits(data[i]);
         for (std::size_t i = (num_bits / 8) * 8; i < num_bits; ++i)
             result += test(i);
 
@@ -286,17 +283,17 @@ public:
         return result;
     }
 
-    constexpr small_bitset& flip() {
-        for (auto &i: data) i = ~i;
+    constexpr small_bitset &flip() {
+        _apply_to_all([](auto &x) { x = ~x; }, true);
         return *this;
     }
 
     constexpr void set() {
-        for (auto &i: data) i = 0xFF;
+        _apply_to_all([](auto &x) { x = static_cast<typename std::remove_reference<decltype(x)>::type>(-1ull); }, true);
     }
 
     constexpr void reset() {
-        for (auto &i: data) i = 0;
+        _apply_to_all([](auto &x) { x = 0; }, true);
     }
 
     /*
@@ -329,6 +326,29 @@ public:
         for (std::size_t i = 0; i < num_bits; ++i)
             res.push_back('0' + test(num_bits - i - 1));
         return res;
+    }
+
+private:
+    template<class F>
+    constexpr void _apply_to_all(F &&func_obj, bool include_last_partial_byte = false) {
+        constexpr std::size_t register_bytes = sizeof(std::size_t);
+        constexpr std::size_t register_bits = register_bytes * 8;
+
+        for (std::size_t i = 0; i < num_bits / register_bits; ++i)
+            func_obj(data.data.register_size_arr[i]);
+        for (std::size_t i = (num_bits / register_bits) * register_bytes; i < (include_last_partial_byte ? num_bytes : num_bits / 8); ++i)
+            func_obj(data[i]);
+    }
+
+    template<class F>
+    constexpr void _apply_to_all_const(F &&func_obj, bool include_last_partial_byte = false) const {
+        constexpr std::size_t register_bytes = sizeof(std::size_t);
+        constexpr std::size_t register_bits = register_bytes * 8;
+
+        for (std::size_t i = 0; i < num_bits / register_bits; ++i)
+            func_obj(data.data.register_size_arr[i]);
+        for (std::size_t i = (num_bits / register_bits) * register_bytes; i < (include_last_partial_byte ? num_bytes : num_bits / 8); ++i)
+            func_obj(data[i]);
     }
 }; // namespace sb
 

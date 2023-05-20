@@ -87,7 +87,7 @@ int main() {
         assert(sb.none() == stdb.none());
         assert(sb.count() == stdb.count());
     }
-    for (int i = 0; i < sb.size(); ++i)
+    for (std::size_t i = 0; i < sb.size(); ++i)
         assert(sb[i] == stdb[i]);
     assert(sb.count() == stdb.count());
     std::cout << "All tests passed!\n";
