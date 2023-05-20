@@ -80,9 +80,11 @@ public:
 
     struct small_version {
         struct empty {
-            template<class... G> constexpr empty(G &&...) noexcept { throw "unreachable"; }
-            template<class G> constexpr empty &operator=(G &&) const noexcept { throw "unreachable"; }
-            template<class G> constexpr operator G() const noexcept { throw "unreachable"; }
+            template<class... G> constexpr empty(G &&...) noexcept {}
+            template<class G> constexpr empty &operator=(G &&) noexcept { return *this; }
+            template<class G> constexpr bool operator==(G &&) const noexcept { return true; }
+            template<class G> constexpr bool operator!=(G &&) const noexcept { return true; }
+            constexpr operator std::size_t() const noexcept { return 0; }
         };
         union {
             empty register_size_arr[1]; // never accessed
@@ -152,8 +154,14 @@ public:
         return (data[idx / 8] & masks[idx % 8]) != 0;
     }
 
-    constexpr void set(std::size_t idx) {
+    constexpr small_bitset &set(std::size_t idx) {
         data[idx / 8] |= masks[idx % 8];
+        return *this;
+    }
+
+    constexpr small_bitset &reset(std::size_t idx) {
+        data[idx / 8] &= ~masks[idx % 8];
+        return *this;
     }
 
     constexpr void set(std::size_t idx, bool value) {
@@ -165,17 +173,19 @@ public:
     }
 
     constexpr bool all() const {
-        for (auto i: data)
-            if (i != 0xFF)
-                return false;
-        return true;
+        bool result = true;
+        _apply_to_all_const([&result](auto x) { result &= x == (typename std::remove_reference<decltype(x)>::type) (-1); });
+        constexpr std::uint8_t last_byte_masks[] = {0, 0b1, 0b11, 0b111, 0b1111, 0b11111, 0b111111, 0b1111111};
+        result &= (last_byte_masks[num_bits % 8] & ~data[num_bytes - 1]) == 0;
+        return result;
     }
 
     constexpr bool any() const {
-        for (auto i: data)
-            if (i != 0)
-                return true;
-        return false;
+        bool result = false;
+        _apply_to_all_const([&result](auto x) { result |= x != 0; });
+        constexpr std::uint8_t last_byte_masks[] = {0, 0b1, 0b11, 0b111, 0b1111, 0b11111, 0b111111, 0b1111111};
+        result |= (last_byte_masks[num_bits % 8] & data[num_bytes - 1]) != 0;
+        return result;
     }
 
     constexpr bool none() const {
@@ -290,7 +300,7 @@ public:
     }
 
     constexpr void set() {
-        _apply_to_all([](auto &x) { x = static_cast<typename std::remove_reference<decltype(x)>::type>(-1ull); }, true);
+        _apply_to_all([](auto &x) { x = (typename std::remove_reference<decltype(x)>::type) (-1); }, true);
     }
 
     constexpr void reset() {
@@ -335,8 +345,10 @@ private:
         constexpr std::size_t register_bytes = sizeof(std::size_t);
         constexpr std::size_t register_bits = register_bytes * 8;
 
-        for (auto &i: data.data.register_size_arr)
-            func_obj(i);
+        if (num_bytes >= 8)
+            for (auto &i: data.data.register_size_arr)
+                func_obj(i);
+
         if (include_last_partial_byte)
             for (std::size_t i = (num_bits / register_bits) * register_bytes; i < num_bytes; ++i)
                 func_obj(data[i]);
@@ -350,8 +362,10 @@ private:
         constexpr std::size_t register_bytes = sizeof(std::size_t);
         constexpr std::size_t register_bits = register_bytes * 8;
 
-        for (auto &i: data.data.register_size_arr)
-            func_obj(i);
+        if (num_bytes >= 8)
+            for (auto &i: data.data.register_size_arr)
+                func_obj(i);
+
         if (include_last_partial_byte)
             for (std::size_t i = (num_bits / register_bits) * register_bytes; i < num_bytes; ++i)
                 func_obj(data[i]);
