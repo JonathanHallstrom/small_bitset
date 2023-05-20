@@ -206,7 +206,7 @@ public:
         }
 #endif
         auto count_bits = [](std::size_t x) {
-#if defined(__clang__) || defined(__GNUC__)
+#if defined(__clang__) || defined(__GNUC__) || defined(__INTEL_COMPILER)
             return __builtin_popcountll(x);
 #endif
             int res = 0;
