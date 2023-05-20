@@ -243,8 +243,7 @@ public:
 
     constexpr small_bitset operator~() const {
         small_bitset result = *this;
-        result.flip();
-        return result;
+        return result.flip();
     }
 
     constexpr small_bitset &operator>>=(std::size_t amount) {
@@ -287,8 +286,9 @@ public:
         return result;
     }
 
-    constexpr void flip() {
+    constexpr small_bitset& flip() {
         for (auto &i: data) i = ~i;
+        return *this;
     }
 
     constexpr void set() {
