@@ -206,7 +206,7 @@ public:
         }
 #endif
         auto count_bits = [](std::size_t x) {
-#if defined(__clang__) || defined(__GNUC__) || __has_builtin(__builtin_popcountll)
+#if defined(__clang__) || defined(__GNUC__)
             return __builtin_popcountll(x);
 #endif
             int res = 0;
@@ -263,9 +263,11 @@ public:
                 data[i] = 0;
             amount %= 8;
         }
-        for (std::size_t i = 0; i + 1 < num_bytes; ++i)
-            data[i] = (data[i] >> amount) | (data[i + 1] << (8 - amount));
-        data[num_bytes - 1] >>= amount;
+        if (amount) {
+            for (std::size_t i = 0; i + 1 < num_bytes; ++i)
+                data[i] = (data[i] >> amount) | (data[i + 1] << (8 - amount));
+            data[num_bytes - 1] >>= amount;
+        }
         return *this;
     }
 
@@ -283,9 +285,11 @@ public:
                 data[i] = 0;
             amount %= 8;
         }
-        for (std::size_t i = num_bytes; i-- > 1;)
-            data[i] = (data[i] << amount) | (data[i - 1] >> (8 - amount));
-        data[0] <<= amount;
+        if (amount) {
+            for (std::size_t i = num_bytes; i-- > 1;)
+                data[i] = (data[i] << amount) | (data[i - 1] >> (8 - amount));
+            data[0] <<= amount;
+        }
         return *this;
     }
 
