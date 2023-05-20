@@ -174,7 +174,7 @@ public:
 
     constexpr bool all() const {
         bool result = true;
-        _apply_to_all_const([&result](auto x) { result &= x == (typename std::remove_reference<decltype(x)>::type) (-1); });
+        _apply_to_all_const([&result](auto x) { result &= x == (typename std::remove_reference<decltype(x)>::type)(-1); });
         constexpr std::uint8_t last_byte_masks[] = {0, 0b1, 0b11, 0b111, 0b1111, 0b11111, 0b111111, 0b1111111};
         result &= (last_byte_masks[num_bits % 8] & ~data[num_bytes - 1]) == 0;
         return result;
@@ -300,7 +300,7 @@ public:
     }
 
     constexpr void set() {
-        _apply_to_all([](auto &x) { x = (typename std::remove_reference<decltype(x)>::type) (-1); }, true);
+        _apply_to_all([](auto &x) { x = (typename std::remove_reference<decltype(x)>::type)(-1); }, true);
     }
 
     constexpr void reset() {
@@ -373,7 +373,7 @@ private:
             for (std::size_t i = (num_bits / register_bits) * register_bytes; i < num_bits / 8; ++i)
                 func_obj(data[i]);
     }
-}; // namespace sb
+};
 
 } // namespace sb
 
