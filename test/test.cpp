@@ -50,7 +50,7 @@ int main() {
     using udi = std::uniform_int_distribution<int>;
 
     for (int _ = 0; _ < (1 << 20); ++_) {
-        switch (udi{0, 5}(mt)) {
+        switch (udi{0, 7}(mt)) {
             case 0: {
                 int i = udi{0, sb.size() - 1}(mt);
                 sb[i] = true;
@@ -78,8 +78,35 @@ int main() {
                 sb[i] = ~sb[i];
                 stdb[i] = ~stdb[i];
             } break;
+            case 6: {
+                int i = udi{0, sb.size() - 1}(mt);
+                std::cout << "right\n";
+                std::cout << sb.to_string() << '\n';
+                std::cout << stdb.to_string() << '\n';
+                std::cout << i << '\n';
+                sb >>= i;
+                stdb >>= i;
+            } break;
+            case 7: {
+                int i = udi{0, sb.size() - 1}(mt);
+                std::cout << "left\n";
+                std::cout << sb.to_string() << '\n';
+                std::cout << stdb.to_string() << '\n';
+                std::cout << i << '\n';
+                sb <<= i;
+                stdb <<= i;
+            } break;
             default: {
             } break;
+        }
+        if (sb.count() != stdb.count()) {
+            for (int i = 0; i < size; ++i)
+                std::cout << sb.test(i);
+            std::cout << '\n';
+
+            std::cout << sb.to_string() << '\n';
+            std::cout << stdb.to_string() << '\n';
+            return 0;
         }
         assert(sb.all() == stdb.all());
         assert(sb.any() == stdb.any());

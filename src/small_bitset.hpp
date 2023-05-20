@@ -255,6 +255,7 @@ public:
     }
 
     constexpr small_bitset &operator>>=(std::size_t amount) {
+        data[num_bytes - 1] &= static_cast<std::uint8_t>(0xFF) >> ((8 - num_bits % 8) % 8);
         if (amount >= 8) {
             for (std::size_t i = 0; i < num_bytes - amount / 8; ++i)
                 data[i] = data[i + amount / 8];
@@ -283,7 +284,7 @@ public:
             amount %= 8;
         }
         for (std::size_t i = num_bytes; i-- > 1;)
-            data[i] = (data[i] << amount) | (data[i - 1] << (8 - amount));
+            data[i] = (data[i] << amount) | (data[i - 1] >> (8 - amount));
         data[0] <<= amount;
         return *this;
     }
