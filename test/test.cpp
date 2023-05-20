@@ -9,11 +9,13 @@ static_assert(sizeof(sb::small_bitset<8>) == 1);
 static_assert(sizeof(sb::small_bitset<16>) == 2);
 static_assert(sizeof(sb::small_bitset<24>) == 3);
 static_assert(sizeof(sb::small_bitset<64>) == 8);
+
 static_assert(alignof(sb::small_bitset<8>) == 1);
 static_assert(alignof(sb::small_bitset<56>) == 1);
 static_assert(alignof(sb::small_bitset<57>) == 8);
 static_assert(alignof(sb::small_bitset<64>) == 8);
 static_assert(alignof(sb::small_bitset<1024>) == 8);
+
 static_assert(sb::small_bitset<1>{1}[0]);
 static_assert(sb::small_bitset<2>{2}[1]);
 static_assert(sb::small_bitset<3>{4}[2]);
