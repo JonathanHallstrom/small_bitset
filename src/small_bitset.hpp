@@ -195,7 +195,8 @@ public:
             return result;
         }
 #endif
-        // gets optimized to 'popcnt' instruction with the command line option '-march=haswell' on gcc (tested for versions >=9.1) and clang (tested for versions >=3.6)
+        // gets optimized to 'popcnt' instruction with the command line option '-march=haswell' (or any other supported architecture which has 'popcnt')
+        // tested on gcc (>=9.1) and clang (>=3.6)
         auto count_bits = [](std::size_t x) {
             int res = 0;
             while (x) {
@@ -204,18 +205,14 @@ public:
             }
             return res;
         };
+        
+        for (std::size_t i = 0; i < num_bits / 64; ++i)
+            result += count_bits(data.data.register_size_arr[i]);
+        for (std::size_t i = (num_bits / 64) * 8; i < num_bits / 8; ++i)
+            result += count_bits(data[i]);
+        for (std::size_t i = (num_bits / 8) * 8; i < num_bits; ++i)
+            result += test(i);
 
-        if (num_bytes >= 8) {
-            for (std::size_t i = 0; i < num_bits / 64; ++i)
-                result += count_bits(data.data.register_size_arr[i]);
-            for (std::size_t i = (num_bits / 64) * 64; i < num_bits; ++i)
-                result += test(i);
-        } else {
-            for (std::size_t i = 0; i < num_bytes - 1; ++i)
-                result += count_bits(data[i]);
-            for (std::size_t i = (num_bytes - 1) * 8; i < num_bits; ++i)
-                result += test(i);
-        }
         return result;
     }
 

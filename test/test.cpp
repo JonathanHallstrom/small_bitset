@@ -35,10 +35,8 @@ static_assert(sb::small_bitset<8 * sizeof(unsigned long long)>(std::numeric_limi
 
 
 int main() {
-    constexpr int size = 4096;
-    sb::small_bitset<size>
-            // std::bitset<size>
-            sb{};
+    constexpr int size = 73; // 64 + 8 + 1
+    sb::small_bitset<size> sb{};
     std::bitset<size> stdb{};
 
     std::mt19937_64 mt{std::random_device{}()};
