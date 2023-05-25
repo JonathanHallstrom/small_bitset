@@ -396,11 +396,11 @@ private:
         constexpr std::size_t register_bits = register_bytes * 8;
 
         if (num_bytes >= register_bytes) {
-            if (num_bytes % register_bytes == 0 && num_bits % 64) {
+            if (num_bytes % register_bytes == 0 && num_bits % register_bits) {
                 for (std::size_t i = 0; i < num_bytes / 8 - 1; ++i)
                     func_obj(data.data.register_size_arr[i], static_cast<std::size_t>(-1));
 
-                func_obj(data.data.register_size_arr[num_bytes / 8 - 1], static_cast<std::size_t>(-1) >> (64 - num_bits % 64));
+                func_obj(data.data.register_size_arr[num_bytes / 8 - 1], static_cast<std::size_t>(-1) >> (register_bits - num_bits % register_bits));
                 return;
             } else {
                 for (std::size_t i = 0; i < num_bytes / 8; ++i)
