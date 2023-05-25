@@ -12,6 +12,9 @@ namespace sb {
 static constexpr std::uint8_t masks[] = {1, 2, 4, 8, 16, 32, 64, 128};
 template<std::size_t num_bits>
 class small_bitset {
+    constexpr static std::size_t REGISTER_BYTES = sizeof(std::size_t);
+    constexpr static std::size_t BITS_PER_BYTE = 8;
+    constexpr static std::size_t REGISTER_BITS = REGISTER_BYTES * 8;
 
 private:
     class bit_ref {
@@ -44,13 +47,13 @@ private:
     };
 
 public:
-    static constexpr std::size_t num_bytes = num_bits / 8 + (num_bits % 8 != 0);
+    static constexpr std::size_t num_bytes = num_bits / BITS_PER_BYTE + (num_bits % BITS_PER_BYTE != 0);
 
     static_assert(num_bits > 0, "number of bits has to be greater than zero");
 
     struct big_version {
         union {
-            std::size_t register_size_arr[num_bytes / sizeof(std::size_t)];
+            std::size_t register_size_arr[num_bytes / REGISTER_BYTES];
             std::uint8_t byte_size_arr[num_bytes]{};
         } data;
 
@@ -117,7 +120,7 @@ public:
         }
     };
 
-    typename std::conditional<(num_bytes >= 8), big_version, small_version>::type data{};
+    typename std::conditional<(num_bytes >= REGISTER_BYTES), big_version, small_version>::type data{};
 
     constexpr small_bitset() = default;
 
@@ -128,7 +131,7 @@ public:
         while (u) {
             assert(i < num_bytes && "u does not fit in bitset");
             data[i++] = u & 0xff;
-            u >>= 8;
+            u >>= BITS_PER_BYTE;
         }
     }
 
@@ -144,32 +147,32 @@ public:
     }
 
     constexpr bit_ref operator[](std::size_t idx) {
-        return bit_ref{data[idx / 8], idx % 8};
+        return bit_ref{data[idx / BITS_PER_BYTE], idx % BITS_PER_BYTE};
     }
 
     constexpr bool operator[](std::size_t idx) const {
-        return (data[idx / 8] & masks[idx % 8]) != 0;
+        return (data[idx / BITS_PER_BYTE] & masks[idx % BITS_PER_BYTE]) != 0;
     }
 
     constexpr bool test(std::size_t idx) const {
-        return (data[idx / 8] & masks[idx % 8]) != 0;
+        return (data[idx / BITS_PER_BYTE] & masks[idx % BITS_PER_BYTE]) != 0;
     }
 
     constexpr small_bitset &set(std::size_t idx) {
-        data[idx / 8] |= masks[idx % 8];
+        data[idx / BITS_PER_BYTE] |= masks[idx % BITS_PER_BYTE];
         return *this;
     }
 
     constexpr small_bitset &reset(std::size_t idx) {
-        data[idx / 8] &= ~masks[idx % 8];
+        data[idx / BITS_PER_BYTE] &= ~masks[idx % BITS_PER_BYTE];
         return *this;
     }
 
     constexpr small_bitset &set(std::size_t idx, bool value) {
         if (value) {
-            data[idx / 8] |= masks[idx % 8];
+            data[idx / BITS_PER_BYTE] |= masks[idx % BITS_PER_BYTE];
         } else {
-            data[idx / 8] &= ~masks[idx % 8];
+            data[idx / BITS_PER_BYTE] &= ~masks[idx % BITS_PER_BYTE];
         }
         return *this;
     }
@@ -272,17 +275,17 @@ public:
     }
 
     constexpr small_bitset &operator>>=(std::size_t amount) {
-        data[num_bytes - 1] &= static_cast<std::uint8_t>(0xFF) >> ((8 - num_bits % 8) % 8);
-        if (amount >= 8) {
-            for (std::size_t i = 0; i < num_bytes - amount / 8; ++i)
-                data[i] = data[i + amount / 8];
-            for (std::size_t i = num_bytes - amount / 8; i < num_bytes; ++i)
+        data[num_bytes - 1] &= static_cast<std::uint8_t>(0xFF) >> ((BITS_PER_BYTE - num_bits % BITS_PER_BYTE) % BITS_PER_BYTE);
+        if (amount >= BITS_PER_BYTE) {
+            for (std::size_t i = 0; i < num_bytes - amount / BITS_PER_BYTE; ++i)
+                data[i] = data[i + amount / BITS_PER_BYTE];
+            for (std::size_t i = num_bytes - amount / BITS_PER_BYTE; i < num_bytes; ++i)
                 data[i] = 0;
-            amount %= 8;
+            amount %= BITS_PER_BYTE;
         }
         if (amount) {
             for (std::size_t i = 0; i + 1 < num_bytes; ++i)
-                data[i] = (data[i] >> amount) | (data[i + 1] << (8 - amount));
+                data[i] = (data[i] >> amount) | (data[i + 1] << (BITS_PER_BYTE - amount));
             data[num_bytes - 1] >>= amount;
         }
         return *this;
@@ -295,16 +298,16 @@ public:
     }
 
     constexpr small_bitset &operator<<=(std::size_t amount) {
-        if (amount >= 8) {
-            for (std::size_t i = num_bytes; i-- > amount / 8;)
-                data[i] = data[i - amount / 8];
-            for (std::size_t i = amount / 8; i--;)
+        if (amount >= BITS_PER_BYTE) {
+            for (std::size_t i = num_bytes; i-- > amount / BITS_PER_BYTE;)
+                data[i] = data[i - amount / BITS_PER_BYTE];
+            for (std::size_t i = amount / BITS_PER_BYTE; i--;)
                 data[i] = 0;
-            amount %= 8;
+            amount %= BITS_PER_BYTE;
         }
         if (amount) {
             for (std::size_t i = num_bytes; i-- > 1;)
-                data[i] = (data[i] << amount) | (data[i - 1] >> (8 - amount));
+                data[i] = (data[i] << amount) | (data[i - 1] >> (BITS_PER_BYTE - amount));
             data[0] <<= amount;
         }
         return *this;
@@ -349,7 +352,7 @@ public:
     constexpr unsigned long to_ulong() const {
         unsigned long result = 0;
         for (std::size_t i = 0; i < std::min(sizeof(unsigned long), num_bytes); ++i)
-            result |= static_cast<unsigned long>(data[i]) << (8 * i);
+            result |= static_cast<unsigned long>(data[i]) << (BITS_PER_BYTE * i);
         return result;
     }
 
@@ -359,7 +362,7 @@ public:
     constexpr unsigned long long to_ullong() const {
         unsigned long long result = 0;
         for (std::size_t i = 0; i < std::min(sizeof(unsigned long long), num_bytes); ++i)
-            result |= static_cast<unsigned long long>(data[i]) << (8 * i);
+            result |= static_cast<unsigned long long>(data[i]) << (BITS_PER_BYTE * i);
         return result;
     }
 
@@ -378,44 +381,40 @@ public:
 private:
     template<class F>
     constexpr void _modify_all_bytes(F &&func_obj) {
-        constexpr std::size_t register_bytes = sizeof(std::size_t);
-        constexpr std::size_t register_bits = register_bytes * 8;
 
-        if (num_bytes >= register_bytes)
+        if (num_bytes >= REGISTER_BYTES)
             for (auto &i: data.data.register_size_arr)
                 func_obj(i);
-        if (num_bytes % register_bytes == 0) return;
+        if (num_bytes % REGISTER_BYTES == 0) return;
 
-        for (std::size_t i = (num_bits / register_bits) * register_bytes; i < num_bytes; ++i)
+        for (std::size_t i = (num_bits / REGISTER_BITS) * REGISTER_BYTES; i < num_bytes; ++i)
             func_obj(data[i]);
     }
 
     template<class F>
     constexpr void _apply_to_all_const(F &&func_obj) const {
-        constexpr std::size_t register_bytes = sizeof(std::size_t);
-        constexpr std::size_t register_bits = register_bytes * 8;
 
-        if (num_bytes >= register_bytes) {
-            if (num_bytes % register_bytes == 0 && num_bits % register_bits) {
-                for (std::size_t i = 0; i < num_bytes / 8 - 1; ++i)
+        if (num_bytes >= REGISTER_BYTES) {
+            if (num_bytes % REGISTER_BYTES == 0 && num_bits % REGISTER_BITS) {
+                for (std::size_t i = 0; i < num_bytes / REGISTER_BYTES - 1; ++i)
                     func_obj(data.data.register_size_arr[i], static_cast<std::size_t>(-1));
 
-                func_obj(data.data.register_size_arr[num_bytes / 8 - 1], static_cast<std::size_t>(-1) >> (register_bits - num_bits % register_bits));
+                func_obj(data.data.register_size_arr[num_bytes / REGISTER_BYTES - 1], static_cast<std::size_t>(-1) >> (REGISTER_BITS - num_bits % REGISTER_BITS));
                 return;
             } else {
-                for (std::size_t i = 0; i < num_bytes / 8; ++i)
+                for (std::size_t i = 0; i < num_bytes / REGISTER_BYTES; ++i)
                     func_obj(data.data.register_size_arr[i], static_cast<std::size_t>(-1));
             }
         }
         std::size_t temp = 0;
         std::size_t mask = 0;
         std::size_t shift = 0;
-        for (std::size_t i = (num_bits / register_bits) * register_bytes; i < num_bits / 8; ++i)
-            temp |= static_cast<std::size_t>(data[i]) << shift, mask |= 0xFFull << shift, shift += 8;
+        for (std::size_t i = (num_bits / REGISTER_BITS) * BITS_PER_BYTE; i < num_bits / BITS_PER_BYTE; ++i)
+            temp |= static_cast<std::size_t>(data[i]) << shift, mask |= 0xFFull << shift, shift += BITS_PER_BYTE;
 
-        if (num_bits % 8) {
-            constexpr std::size_t last_byte_mask = 0xFF >> (8 - num_bits % 8);
-            temp |= static_cast<std::size_t>(data[num_bytes - 1]) << shift, mask |= static_cast<std::size_t>(last_byte_mask) << shift, shift += 8;
+        if (num_bits % BITS_PER_BYTE) {
+            constexpr std::size_t last_byte_mask = 0xFF >> (BITS_PER_BYTE - num_bits % BITS_PER_BYTE);
+            temp |= static_cast<std::size_t>(data[num_bytes - 1]) << shift, mask |= static_cast<std::size_t>(last_byte_mask) << shift, shift += BITS_PER_BYTE;
         }
         if (shift)
             func_obj(temp, mask);
