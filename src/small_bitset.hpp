@@ -176,17 +176,17 @@ public:
 
     constexpr bool all() const {
         bool result = true;
-        _apply_to_all_const([&result](auto x) { result &= x == (typename std::remove_reference<decltype(x)>::type)(-1); });
-        constexpr std::uint8_t last_byte_masks[] = {0, 0b1, 0b11, 0b111, 0b1111, 0b11111, 0b111111, 0b1111111};
-        result &= (last_byte_masks[num_bits % 8] & ~data[num_bytes - 1]) == 0;
+        _apply_to_all_const([&result](auto x, auto mask) {
+            result &= (x & mask) == mask;
+        });
         return result;
     }
 
     constexpr bool any() const {
         bool result = false;
-        _apply_to_all_const([&result](auto x) { result |= x != 0; });
-        constexpr std::uint8_t last_byte_masks[] = {0, 0b1, 0b11, 0b111, 0b1111, 0b11111, 0b111111, 0b1111111};
-        result |= (last_byte_masks[num_bits % 8] & data[num_bytes - 1]) != 0;
+        _apply_to_all_const([&result](auto x, auto mask) {
+            result |= (x & mask) != 0;
+        });
         return result;
     }
 
@@ -219,12 +219,9 @@ public:
             return res;
         };
 
-        _apply_to_all_const([count_bits, &result](auto x) {
-            result += count_bits(x);
+        _apply_to_all_const([count_bits, &result](auto x, auto mask) {
+            result += count_bits(x & mask);
         });
-
-        constexpr std::uint8_t last_byte_mask = 0xFF >> (8 - num_bits % 8);
-        result += count_bits(last_byte_mask & data[num_bytes - 1]);
 
         return result;
     }
@@ -249,6 +246,24 @@ public:
         for (std::size_t i = 0; i < num_bytes; ++i)
             data[i] ^= other.data[i];
         return *this;
+    }
+
+    constexpr small_bitset operator&(small_bitset const &other) const {
+        small_bitset result = *this;
+        result &= other;
+        return result;
+    }
+
+    constexpr small_bitset operator|(small_bitset const &other) const {
+        small_bitset result = *this;
+        result |= other;
+        return result;
+    }
+
+    constexpr small_bitset operator^(small_bitset const &other) const {
+        small_bitset result = *this;
+        result ^= other;
+        return result;
     }
 
     constexpr small_bitset operator~() const {
@@ -302,7 +317,7 @@ public:
     }
 
     constexpr small_bitset &flip() {
-        _apply_to_all([](auto &x) { x = ~x; }, true);
+        _modify_all_bytes([](auto &x) { x = ~x; });
         return *this;
     }
 
@@ -313,7 +328,7 @@ public:
             return *this;
         }
 #endif
-        _apply_to_all([](auto &x) { x = (typename std::remove_reference<decltype(x)>::type)(-1); }, true);
+        _modify_all_bytes([](auto &x) { x = (typename std::remove_reference<decltype(x)>::type)(-1); });
         return *this;
     }
 
@@ -324,7 +339,7 @@ public:
             return *this;
         }
 #endif
-        _apply_to_all([](auto &x) { x = 0; }, true);
+        _modify_all_bytes([](auto &x) { x = 0; });
         return *this;
     }
 
@@ -362,37 +377,48 @@ public:
 
 private:
     template<class F>
-    constexpr void _apply_to_all(F &&func_obj, bool include_last_partial_byte = false) {
+    constexpr void _modify_all_bytes(F &&func_obj) {
         constexpr std::size_t register_bytes = sizeof(std::size_t);
         constexpr std::size_t register_bits = register_bytes * 8;
 
-        if (num_bytes >= 8)
+        if (num_bytes >= register_bytes)
             for (auto &i: data.data.register_size_arr)
                 func_obj(i);
+        if (num_bytes % register_bytes == 0) return;
 
-        if (include_last_partial_byte)
-            for (std::size_t i = (num_bits / register_bits) * register_bytes; i < num_bytes; ++i)
-                func_obj(data[i]);
-        else
-            for (std::size_t i = (num_bits / register_bits) * register_bytes; i < num_bits / 8; ++i)
-                func_obj(data[i]);
+        for (std::size_t i = (num_bits / register_bits) * register_bytes; i < num_bytes; ++i)
+            func_obj(data[i]);
     }
 
     template<class F>
-    constexpr void _apply_to_all_const(F &&func_obj, bool include_last_partial_byte = false) const {
+    constexpr void _apply_to_all_const(F &&func_obj) const {
         constexpr std::size_t register_bytes = sizeof(std::size_t);
         constexpr std::size_t register_bits = register_bytes * 8;
 
-        if (num_bytes >= 8)
-            for (auto &i: data.data.register_size_arr)
-                func_obj(i);
+        if (num_bytes >= register_bytes) {
+            if (num_bytes % register_bytes == 0 && num_bits % 64) {
+                for (std::size_t i = 0; i < num_bytes / 8 - 1; ++i)
+                    func_obj(data.data.register_size_arr[i], static_cast<std::size_t>(-1));
 
-        if (include_last_partial_byte)
-            for (std::size_t i = (num_bits / register_bits) * register_bytes; i < num_bytes; ++i)
-                func_obj(data[i]);
-        else
-            for (std::size_t i = (num_bits / register_bits) * register_bytes; i < num_bits / 8; ++i)
-                func_obj(data[i]);
+                func_obj(data.data.register_size_arr[num_bytes / 8 - 1], static_cast<std::size_t>(-1) >> (64 - num_bits % 64));
+                return;
+            } else {
+                for (std::size_t i = 0; i < num_bytes / 8; ++i)
+                    func_obj(data.data.register_size_arr[i], static_cast<std::size_t>(-1));
+            }
+        }
+        std::size_t temp = 0;
+        std::size_t mask = 0;
+        std::size_t shift = 0;
+        for (std::size_t i = (num_bits / register_bits) * register_bytes; i < num_bits / 8; ++i)
+            temp |= static_cast<std::size_t>(data[i]) << shift, mask |= 0xFFull << shift, shift += 8;
+
+        if (num_bits % 8) {
+            constexpr std::size_t last_byte_mask = 0xFF >> (8 - num_bits % 8);
+            temp |= static_cast<std::size_t>(data[num_bytes - 1]) << shift, mask |= static_cast<std::size_t>(last_byte_mask) << shift, shift += 8;
+        }
+        if (shift)
+            func_obj(temp, mask);
     }
 };
 
