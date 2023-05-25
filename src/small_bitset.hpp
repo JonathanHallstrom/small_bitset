@@ -223,8 +223,8 @@ public:
             result += count_bits(x);
         });
 
-        constexpr std::uint8_t last_byte_masks[] = {0, 0b1, 0b11, 0b111, 0b1111, 0b11111, 0b111111, 0b1111111};
-        result += count_bits(last_byte_masks[num_bits % 8] & data[num_bytes - 1]);
+        constexpr std::uint8_t last_byte_mask = 0xFF >> (8 - num_bits % 8);
+        result += count_bits(last_byte_mask & data[num_bytes - 1]);
 
         return result;
     }
