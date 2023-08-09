@@ -53,14 +53,14 @@ void test() {
     std::bitset<size> standard{};
 
     for (int _ = 0; _ < (1 << 20); ++_) {
-        switch (udi{0, 10}(mt)) {
+        auto chosen = udi{0, 10}(mt);
+        int i = udi{0, small.size() - 1}(mt);
+        switch (chosen) {
             case 0: {
-                int i = udi{0, small.size() - 1}(mt);
                 small[i] = true;
                 standard[i] = true;
             } break;
             case 1: {
-                int i = udi{0, small.size() - 1}(mt);
                 small[i] = false;
                 standard[i] = false;
             } break;
@@ -77,39 +77,33 @@ void test() {
                 standard.set();
             } break;
             case 5: {
-                int i = udi{0, small.size() - 1}(mt);
                 small[i] = ~small[i];
                 standard[i] = ~standard[i];
             } break;
             case 6: {
-                int i = udi{0, small.size() - 1}(mt);
                 small >>= i;
                 standard >>= i;
             } break;
             case 7: {
-                int i = udi{0, small.size() - 1}(mt);
                 small <<= i;
                 standard <<= i;
             } break;
             case 8: {
-                int i = udi{0, small.size() - 1}(mt);
                 small |= small >> i;
                 standard |= standard >> i;
             } break;
             case 9: {
-                int i = udi{0, small.size() - 1}(mt);
                 small ^= small << i;
                 standard ^= standard << i;
             } break;
             case 10: {
-                int i = udi{0, small.size() - 1}(mt);
                 small &= small >> i;
                 standard &= standard >> i;
             } break;
             default: {
             } break;
         }
-
+        // std::cout << chosen << ' ' << i << '\n';
         // std::cerr << "testing: " << small.to_string() << ' ' << standard.to_string() << '\n';
         assert(small.to_string() == standard.to_string());
 
@@ -117,6 +111,10 @@ void test() {
         assert(small.any() == standard.any());
         assert(small.none() == standard.none());
         assert(small.count() == standard.count());
+        if (size <= sizeof(std::size_t) * __CHAR_BIT__) {
+            assert(small.to_ulong() == standard.to_ulong());
+            assert(small.to_ullong() == standard.to_ullong());
+        }
         for (std::size_t i = 0; i < small.size(); ++i)
             assert(small[i] == standard[i]);
     }
@@ -124,8 +122,8 @@ void test() {
 
 int main() {
     std::vector<std::future<void>> futures;
-#define LAUNCH(x) futures.push_back(std::async(std::launch::async, [&]() { x; }));
-// #define LAUNCH(x) futures.push_back(std::async(std::launch::deferred, [&]() { x; }));
+#define LAUNCH(x) futures.push_back(std::async(std::launch::async, [&]() { x; }))
+// #define LAUNCH(x) futures.push_back(std::async(std::launch::deferred, [&]() { x; }))
     LAUNCH(test<1>());
     LAUNCH(test<2>());
     LAUNCH(test<3>());

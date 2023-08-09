@@ -15,6 +15,7 @@ class small_bitset {
     constexpr static std::size_t REGISTER_BYTES = sizeof(std::size_t);
     constexpr static std::size_t BITS_PER_BYTE = 8;
     constexpr static std::size_t REGISTER_BITS = REGISTER_BYTES * 8;
+    constexpr static std::size_t LAST_BYTE_MASK = 0xFF >> (BITS_PER_BYTE - num_bits % BITS_PER_BYTE) % BITS_PER_BYTE;
 
 private:
     class bit_ref {
@@ -86,7 +87,7 @@ public:
         struct empty {
             template<class... G> constexpr empty(G &&...) noexcept {}
             template<class G> constexpr empty &operator=(G &&) noexcept { return *this; }
-            template<class G> constexpr bool operator==(G &&) const noexcept { return true; }
+            template<class G> constexpr bool operator==(G &&) const noexcept { return 0; }
             template<class G> constexpr bool operator!=(G &&) const noexcept { return true; }
             constexpr operator std::size_t() const noexcept { return 0; }
         };
@@ -288,6 +289,7 @@ public:
                 data[i] = (data[i] >> amount) | (data[i + 1] << (BITS_PER_BYTE - amount));
             data[num_bytes - 1] >>= amount;
         }
+        // _fix_last_byte();
         return *this;
     }
 
@@ -310,6 +312,7 @@ public:
                 data[i] = (data[i] << amount) | (data[i - 1] >> (BITS_PER_BYTE - amount));
             data[0] <<= amount;
         }
+        _fix_last_byte();
         return *this;
     }
 
@@ -321,6 +324,7 @@ public:
 
     constexpr small_bitset &flip() {
         _modify_all_bytes([](auto &x) { x = ~x; });
+        _fix_last_byte();
         return *this;
     }
 
@@ -332,6 +336,7 @@ public:
         }
 #endif
         _modify_all_bytes([](auto &x) { x = (typename std::remove_reference<decltype(x)>::type)(-1); });
+        _fix_last_byte();
         return *this;
     }
 
@@ -379,6 +384,10 @@ public:
     }
 
 private:
+    constexpr void _fix_last_byte() {
+        data[num_bytes - 1] &= LAST_BYTE_MASK;
+    }
+
     template<class F>
     constexpr void _modify_all_bytes(F &&func_obj) {
 
@@ -389,6 +398,7 @@ private:
 
         for (std::size_t i = (num_bits / REGISTER_BITS) * REGISTER_BYTES; i < num_bytes; ++i)
             func_obj(data[i]);
+        _fix_last_byte();
     }
 
     template<class F>
@@ -413,8 +423,7 @@ private:
             temp |= static_cast<std::size_t>(data[i]) << shift, mask |= 0xFFull << shift, shift += BITS_PER_BYTE;
 
         if (num_bits % BITS_PER_BYTE) {
-            constexpr std::size_t last_byte_mask = 0xFF >> (BITS_PER_BYTE - num_bits % BITS_PER_BYTE);
-            temp |= static_cast<std::size_t>(data[num_bytes - 1]) << shift, mask |= static_cast<std::size_t>(last_byte_mask) << shift, shift += BITS_PER_BYTE;
+            temp |= static_cast<std::size_t>(data[num_bytes - 1]) << shift, mask |= static_cast<std::size_t>(LAST_BYTE_MASK) << shift, shift += BITS_PER_BYTE;
         }
         if (shift)
             func_obj(temp, mask);
