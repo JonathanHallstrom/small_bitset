@@ -8,8 +8,17 @@
 #include <string>
 #include <type_traits>
 
+#if __cplusplus >= 201703L
+#define CXX17CONSTEXPR constexpr
+#else
+#define CXX17CONSTEXPR
+#endif
+
 namespace sb {
 static constexpr std::uint8_t masks[] = {1, 2, 4, 8, 16, 32, 64, 128};
+/// same API as std::bitset with the same functionality
+/// except of course the fact that this uses the least memory possible
+/// note: shifting can be a little slow
 template<std::size_t num_bits>
 class small_bitset {
     constexpr static std::size_t REGISTER_BYTES = sizeof(std::size_t);
@@ -48,14 +57,14 @@ private:
     };
 
 public:
-    static constexpr std::size_t num_bytes = num_bits / BITS_PER_BYTE + (num_bits % BITS_PER_BYTE != 0);
+#define NUM_BYTES (num_bits / BITS_PER_BYTE + (num_bits % BITS_PER_BYTE != 0))
 
     static_assert(num_bits > 0, "number of bits has to be greater than zero");
 
     struct big_version {
         union {
-            std::size_t register_size_arr[num_bytes / REGISTER_BYTES];
-            std::uint8_t byte_size_arr[num_bytes]{};
+            std::size_t register_size_arr[NUM_BYTES / REGISTER_BYTES];
+            std::uint8_t byte_size_arr[NUM_BYTES]{};
         } data;
 
         constexpr std::uint8_t &operator[](std::size_t idx) {
@@ -67,19 +76,19 @@ public:
         }
 
         constexpr std::uint8_t *begin() {
-            return data.byte_size_arr;
+            return &data.byte_size_arr[0];
         }
 
         constexpr std::uint8_t const *begin() const {
-            return data.byte_size_arr;
+            return &data.byte_size_arr[0];
         }
 
         constexpr std::uint8_t *end() {
-            return data.byte_size_arr + num_bytes;
+            return &data.byte_size_arr[NUM_BYTES];
         }
 
         constexpr std::uint8_t const *end() const {
-            return data.byte_size_arr + num_bytes;
+            return &data.byte_size_arr[NUM_BYTES];
         }
     };
 
@@ -93,7 +102,7 @@ public:
         };
         union {
             empty register_size_arr[1]; // never accessed
-            std::uint8_t byte_size_arr[num_bytes]{};
+            std::uint8_t byte_size_arr[NUM_BYTES]{};
         } data;
 
         constexpr std::uint8_t &operator[](std::size_t idx) {
@@ -105,39 +114,41 @@ public:
         }
 
         constexpr std::uint8_t *begin() {
-            return data.byte_size_arr;
+            return &data.byte_size_arr[0];
         }
 
         constexpr std::uint8_t const *begin() const {
-            return data.byte_size_arr;
+            return &data.byte_size_arr[0];
         }
 
         constexpr std::uint8_t *end() {
-            return data.byte_size_arr + num_bytes;
+            return &data.byte_size_arr[NUM_BYTES];
         }
 
         constexpr std::uint8_t const *end() const {
-            return data.byte_size_arr + num_bytes;
+            return &data.byte_size_arr[NUM_BYTES];
         }
     };
 
-    typename std::conditional<(num_bytes >= REGISTER_BYTES), big_version, small_version>::type data{};
+    typename std::conditional<(NUM_BYTES >= REGISTER_BYTES), big_version, small_version>::type data{};
 
     constexpr small_bitset() = default;
 
     constexpr small_bitset(small_bitset const &other) = default;
 
+    constexpr small_bitset &operator=(small_bitset const &other) = default;
+
     constexpr small_bitset(std::uint64_t u) {
         std::size_t i = 0;
         while (u) {
-            assert(i < num_bytes && "u does not fit in bitset");
+            assert(i < NUM_BYTES && "u does not fit in bitset");
             data[i++] = u & 0xff;
             u >>= BITS_PER_BYTE;
         }
     }
 
     constexpr bool operator==(small_bitset other) const {
-        for (std::size_t i = 0; i < num_bytes; ++i)
+        for (std::size_t i = 0; i < NUM_BYTES; ++i)
             if (data[i] != other.data[i])
                 return false;
         return true;
@@ -223,7 +234,7 @@ public:
             return res;
         };
 
-        _apply_to_all_const([count_bits, &result](auto x, auto mask) {
+        _apply_to_all_const([count_bits, &result](std::size_t x, std::size_t mask) {
             result += count_bits(x & mask);
         });
 
@@ -234,81 +245,80 @@ public:
         return num_bits;
     }
 
-    constexpr small_bitset &operator&=(small_bitset const &other) {
-        for (std::size_t i = 0; i < num_bytes; ++i)
+    CXX17CONSTEXPR small_bitset &operator&=(small_bitset const &other) {
+        for (std::size_t i = 0; i < NUM_BYTES; ++i)
             data[i] &= other.data[i];
         return *this;
     }
 
-    constexpr small_bitset &operator|=(small_bitset const &other) {
-        for (std::size_t i = 0; i < num_bytes; ++i)
+    CXX17CONSTEXPR small_bitset &operator|=(small_bitset const &other) {
+        for (std::size_t i = 0; i < NUM_BYTES; ++i)
             data[i] |= other.data[i];
         return *this;
     }
 
-    constexpr small_bitset &operator^=(small_bitset const &other) {
-        for (std::size_t i = 0; i < num_bytes; ++i)
+    CXX17CONSTEXPR small_bitset &operator^=(small_bitset const &other) {
+        for (std::size_t i = 0; i < NUM_BYTES; ++i)
             data[i] ^= other.data[i];
         return *this;
     }
 
-    constexpr small_bitset operator&(small_bitset const &other) const {
+    CXX17CONSTEXPR small_bitset operator&(small_bitset const &other) const {
         small_bitset result = *this;
         result &= other;
         return result;
     }
 
-    constexpr small_bitset operator|(small_bitset const &other) const {
+    CXX17CONSTEXPR small_bitset operator|(small_bitset const &other) const {
         small_bitset result = *this;
         result |= other;
         return result;
     }
 
-    constexpr small_bitset operator^(small_bitset const &other) const {
+    CXX17CONSTEXPR small_bitset operator^(small_bitset const &other) const {
         small_bitset result = *this;
         result ^= other;
         return result;
     }
 
-    constexpr small_bitset operator~() const {
+    CXX17CONSTEXPR small_bitset operator~() const {
         small_bitset result = *this;
         return result.flip();
     }
 
-    constexpr small_bitset &operator>>=(std::size_t amount) {
-        data[num_bytes - 1] &= static_cast<std::uint8_t>(0xFF) >> ((BITS_PER_BYTE - num_bits % BITS_PER_BYTE) % BITS_PER_BYTE);
+    CXX17CONSTEXPR small_bitset &operator>>=(std::size_t amount) {
+        data[NUM_BYTES - 1] &= static_cast<std::uint8_t>(0xFF) >> ((BITS_PER_BYTE - num_bits % BITS_PER_BYTE) % BITS_PER_BYTE);
         if (amount >= BITS_PER_BYTE) {
-            for (std::size_t i = 0; i < num_bytes - amount / BITS_PER_BYTE; ++i)
+            for (std::size_t i = 0; i < NUM_BYTES - amount / BITS_PER_BYTE; ++i)
                 data[i] = data[i + amount / BITS_PER_BYTE];
-            for (std::size_t i = num_bytes - amount / BITS_PER_BYTE; i < num_bytes; ++i)
+            for (std::size_t i = NUM_BYTES - amount / BITS_PER_BYTE; i < NUM_BYTES; ++i)
                 data[i] = 0;
             amount %= BITS_PER_BYTE;
         }
         if (amount) {
-            for (std::size_t i = 0; i + 1 < num_bytes; ++i)
+            for (std::size_t i = 0; i + 1 < NUM_BYTES; ++i)
                 data[i] = (data[i] >> amount) | (data[i + 1] << (BITS_PER_BYTE - amount));
-            data[num_bytes - 1] >>= amount;
+            data[NUM_BYTES - 1] >>= amount;
         }
-        // _fix_last_byte();
         return *this;
     }
 
-    constexpr small_bitset operator>>(std::size_t amount) const {
+    CXX17CONSTEXPR small_bitset operator>>(std::size_t amount) const {
         small_bitset result = *this;
         result >>= amount;
         return result;
     }
 
-    constexpr small_bitset &operator<<=(std::size_t amount) {
+    CXX17CONSTEXPR small_bitset &operator<<=(std::size_t amount) {
         if (amount >= BITS_PER_BYTE) {
-            for (std::size_t i = num_bytes; i-- > amount / BITS_PER_BYTE;)
+            for (std::size_t i = NUM_BYTES; i-- > amount / BITS_PER_BYTE;)
                 data[i] = data[i - amount / BITS_PER_BYTE];
             for (std::size_t i = amount / BITS_PER_BYTE; i--;)
                 data[i] = 0;
             amount %= BITS_PER_BYTE;
         }
         if (amount) {
-            for (std::size_t i = num_bytes; i-- > 1;)
+            for (std::size_t i = NUM_BYTES; i-- > 1;)
                 data[i] = (data[i] << amount) | (data[i - 1] >> (BITS_PER_BYTE - amount));
             data[0] <<= amount;
         }
@@ -322,52 +332,68 @@ public:
         return result;
     }
 
-    constexpr small_bitset &flip() {
+    CXX17CONSTEXPR small_bitset &flip() {
         _modify_all_bytes([](auto &x) { x = ~x; });
         _fix_last_byte();
         return *this;
     }
 
-    constexpr small_bitset &set() {
-#if __cpp_lib_is_constant_evaluated
-        if (!std::is_constant_evaluated()) {
-            std::memset(data.begin(), -1, sizeof(data));
-            return *this;
-        }
-#endif
+    CXX17CONSTEXPR small_bitset &set() {
         _modify_all_bytes([](auto &x) { x = (typename std::remove_reference<decltype(x)>::type)(-1); });
         _fix_last_byte();
         return *this;
     }
 
-    constexpr small_bitset &reset() {
-#if __cpp_lib_is_constant_evaluated
-        if (!std::is_constant_evaluated()) {
-            std::memset(data.begin(), 0, sizeof(data));
-            return *this;
-        }
-#endif
+    CXX17CONSTEXPR small_bitset &reset() {
         _modify_all_bytes([](auto &x) { x = 0; });
         return *this;
     }
 
     /*
      * bits which wouldn't fit in an unsigned long are ignored
+     * this differs from the standard version which throws an exception
      */
-    constexpr unsigned long to_ulong() const {
+#if __cpp_lib_is_constant_evaluated
+    constexpr
+#endif
+            unsigned long
+            to_ulong() const {
         unsigned long result = 0;
-        for (std::size_t i = 0; i < std::min(sizeof(unsigned long), num_bytes); ++i)
-            result |= static_cast<unsigned long>(data[i]) << (BITS_PER_BYTE * i);
+
+#if __cpp_lib_is_constant_evaluated
+        if (!std::is_constant_evaluated()) {
+            std::memcpy(&result, data.begin(), std::min(sizeof(unsigned long), NUM_BYTES));
+        } else {
+            for (std::size_t i = 0; i < std::min(sizeof(unsigned long), NUM_BYTES); ++i)
+                result |= static_cast<unsigned long>(data[i]) << (BITS_PER_BYTE * i);
+        }
+#else
+        std::memcpy(&result, data.begin(), std::min(sizeof(unsigned long), NUM_BYTES));
+#endif
         return result;
     }
 
     /*
      * bits which wouldn't fit in an unsigned long long are ignored
+     * this differs from the standard version which throws an exception
      */
-    constexpr unsigned long long to_ullong() const {
+#if __cpp_lib_is_constant_evaluated
+    constexpr
+#endif
+            unsigned long long
+            to_ullong() const {
         unsigned long long result = 0;
-        for (std::size_t i = 0; i < std::min(sizeof(unsigned long long), num_bytes); ++i)
-            result |= static_cast<unsigned long long>(data[i]) << (BITS_PER_BYTE * i);
+
+#if __cpp_lib_is_constant_evaluated
+        if (!std::is_constant_evaluated()) {
+            std::memcpy(&result, data.begin(), std::min(sizeof(unsigned long long), NUM_BYTES));
+        } else {
+            for (std::size_t i = 0; i < std::min(sizeof(unsigned long long), NUM_BYTES); ++i)
+                result |= static_cast<unsigned long>(data[i]) << (BITS_PER_BYTE * i);
+        }
+#else
+        std::memcpy(&result, data.begin(), std::min(sizeof(unsigned long long), NUM_BYTES));
+#endif
         return result;
     }
 
@@ -384,35 +410,35 @@ public:
     }
 
 private:
-    constexpr void _fix_last_byte() {
-        data[num_bytes - 1] &= LAST_BYTE_MASK;
+    CXX17CONSTEXPR void _fix_last_byte() {
+        data[NUM_BYTES - 1] &= LAST_BYTE_MASK;
     }
 
     template<class F>
-    constexpr void _modify_all_bytes(F &&func_obj) {
+    CXX17CONSTEXPR void _modify_all_bytes(F &&func_obj) {
 
-        if (num_bytes >= REGISTER_BYTES)
+        if (NUM_BYTES >= REGISTER_BYTES)
             for (auto &i: data.data.register_size_arr)
                 func_obj(i);
-        if (num_bytes % REGISTER_BYTES == 0) return;
+        if (NUM_BYTES % REGISTER_BYTES == 0) return;
 
-        for (std::size_t i = (num_bits / REGISTER_BITS) * REGISTER_BYTES; i < num_bytes; ++i)
+        for (std::size_t i = (num_bits / REGISTER_BITS) * REGISTER_BYTES; i < NUM_BYTES; ++i)
             func_obj(data[i]);
         _fix_last_byte();
     }
 
     template<class F>
-    constexpr void _apply_to_all_const(F &&func_obj) const {
+    CXX17CONSTEXPR void _apply_to_all_const(F &&func_obj) const {
 
-        if (num_bytes >= REGISTER_BYTES) {
-            if (num_bytes % REGISTER_BYTES == 0 && num_bits % REGISTER_BITS) {
-                for (std::size_t i = 0; i < num_bytes / REGISTER_BYTES - 1; ++i)
+        if (NUM_BYTES >= REGISTER_BYTES) {
+            if (NUM_BYTES % REGISTER_BYTES == 0 && num_bits % REGISTER_BITS) {
+                for (std::size_t i = 0; i < NUM_BYTES / REGISTER_BYTES - 1; ++i)
                     func_obj(data.data.register_size_arr[i], static_cast<std::size_t>(-1));
 
-                func_obj(data.data.register_size_arr[num_bytes / REGISTER_BYTES - 1], static_cast<std::size_t>(-1) >> (REGISTER_BITS - num_bits % REGISTER_BITS));
+                func_obj(data.data.register_size_arr[NUM_BYTES / REGISTER_BYTES - 1], static_cast<std::size_t>(-1) >> (REGISTER_BITS - num_bits % REGISTER_BITS));
                 return;
             } else {
-                for (std::size_t i = 0; i < num_bytes / REGISTER_BYTES; ++i)
+                for (std::size_t i = 0; i < NUM_BYTES / REGISTER_BYTES; ++i)
                     func_obj(data.data.register_size_arr[i], static_cast<std::size_t>(-1));
             }
         }
@@ -423,7 +449,7 @@ private:
             temp |= static_cast<std::size_t>(data[i]) << shift, mask |= 0xFFull << shift, shift += BITS_PER_BYTE;
 
         if (num_bits % BITS_PER_BYTE) {
-            temp |= static_cast<std::size_t>(data[num_bytes - 1]) << shift, mask |= static_cast<std::size_t>(LAST_BYTE_MASK) << shift, shift += BITS_PER_BYTE;
+            temp |= static_cast<std::size_t>(data[NUM_BYTES - 1]) << shift, mask |= static_cast<std::size_t>(LAST_BYTE_MASK) << shift, shift += BITS_PER_BYTE;
         }
         if (shift)
             func_obj(temp, mask);
